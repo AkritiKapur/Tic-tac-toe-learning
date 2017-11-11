@@ -242,6 +242,7 @@ class Grid:
         self.grid = [[None for i in xrange(self.partitions)] for j in xrange(self.partitions)]
 
     def is_winner(self):
+
         # check for each row
         for row in range(0, self.partitions):
             row_set = set(self.grid[row][0:])
@@ -250,7 +251,7 @@ class Grid:
 
         # check for winning columns
         for col in range(0, self.partitions):
-            col_set = set(self.grid[0:][col])
+            col_set = set([self.grid[0][col], self.grid[1][col], self.grid[2][col]])
             if len(col_set) == 1 and None not in col_set:
                 return self.grid[0][col]
 
