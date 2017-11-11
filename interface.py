@@ -34,7 +34,7 @@ class QAgent:
 
 
 class QPlayer(ComputerPlayer):
-    def __init__(self, mark, Q, epsilon=0.2):
+    def __init__(self, mark, Q={}, epsilon=0.2):
         super(QPlayer, self).__init__(mark=mark)
         self.Q = Q
         self.epsilon = epsilon
@@ -78,7 +78,7 @@ class QPlayer(ComputerPlayer):
 
 
 class Game:
-    def __init__(self, player_1, player_2):
+    def __init__(self, player_1, player_2, train=False, alpha=0.3, gamma=0.9):
         pygame.init()
         self.grid = Grid(partitions=3, width=300, height=325)
         self.player_1 = player_1
@@ -86,11 +86,24 @@ class Game:
         self.current_player = self.player_1
         self.other_player = self.player_2
 
+        self.train = train
+        if self.train:
+            self.Q = {}
+            self.alpha = alpha  # Learning rate
+            self.gamma = gamma  # Discount rate
+            self.distribute_Q_to_players()
+
     def start(self):
         if isinstance(self.player_1, HumanPlayer) and isinstance(self.player_2, HumanPlayer):
             self.trigger_event_loop_for_humans()
-        if isinstance(self.player_1, ComputerPlayer) and isinstance(self.player_2, ComputerPlayer):
+        if isinstance(self.player_1, QPlayer) and isinstance(self.player_2, QPlayer):
             self.train_Q_function()
+
+    def distribute_Q_to_players(self):
+        if isinstance(self.player_1, QPlayer):
+            self.player_1.Q = self.Q
+        if isinstance(self.player_2, QPlayer):
+            self.player_2.Q = self.Q
 
     def trigger_event_loop_for_humans(self):
         # Used to manage how fast the screen updates
@@ -129,7 +142,7 @@ class Game:
         return self.player_1
 
     def handle_move(self, move):
-        if self.Q_learn:
+        if self.train:
             self.learn_Q(move)
         i, j = move
         self.grid.place_grid_mark(i, j, self.current_player.mark)
@@ -152,10 +165,9 @@ class Game:
         # If Q-learning is toggled on, "learn_Q" should be called after receiving a move from an instance of Player and
         # before implementing the move (using Board's "place_mark" method)
 
-        print self.Q
-        state_key = QPlayer.make_and_maybe_add_key(self.board, self.current_player.mark, self.Q)
+        state_key = QPlayer.make_and_maybe_add_key(self.grid, self.current_player.mark, self.Q)
         next_board = self.grid.get_next_board(move, self.current_player.mark)
-        reward = next_board.give_reward()
+        reward = next_board.get_reward()
         next_state_key = QPlayer.make_and_maybe_add_key(next_board, self.other_player.mark, self.Q)
         if next_board.is_winner() or next_board.is_winner():
             expected = reward
@@ -167,7 +179,6 @@ class Game:
                 expected = reward + (self.gamma * max(next_Qs.values()))
         change = self.alpha * (expected - self.Q[state_key][move])
         self.Q[state_key][move] += change
-        print self.Q
 
 
 class Grid:
@@ -224,7 +235,7 @@ class Grid:
     def place_grid_mark(self, row, col, shape):
         self.grid[row][col] = shape
 
-    def get_available_moves(self):
+    def available_moves(self):
         return [(i, j) for i in range(0, self.partitions) for j in range(0, self.partitions)]
 
     def reset(self):
